@@ -14,7 +14,9 @@ async def test_proxy(get_version, monkeypatch):
   from nvchecker.source import session
   import aiohttp
 
-  async def fake_request(*args, proxy, **kwargs):
+  async def fake_request(*args, **kwargs):
+    proxy = kwargs.pop('proxy')
+
     class fake_response():
       status = 200
 
