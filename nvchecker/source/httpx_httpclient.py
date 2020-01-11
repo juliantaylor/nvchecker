@@ -49,7 +49,14 @@ class ResponseManager:
     try:
       r = await self.client.get(
         *self.args, **self.kwargs)
+      if r.status_code >= 400:
+        raise HTTPError(
+          r.status_code,
+          r.reason_phrase,
+          r,
+        )
       return Response(r)
+
     except NetworkErrors:
       raise
     except httpx.HTTPError as e:
