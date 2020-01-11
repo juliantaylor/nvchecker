@@ -4,7 +4,6 @@
 import asyncio
 import os.path as _path
 
-from pkg_resources import parse_version
 import structlog
 
 from . import conf_cacheable_with_name

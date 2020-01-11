@@ -8,6 +8,9 @@ from nvchecker.get_version import get_version as _get_version
 from nvchecker.get_version import _cache
 from nvchecker.core import Source
 
+from nvchecker.source import setup_session
+setup_session(None, 20)
+
 class TestSource(Source):
   def __init__(self, future, *args, **kwargs):
     super().__init__(*args, **kwargs)

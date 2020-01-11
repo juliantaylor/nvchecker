@@ -4,11 +4,12 @@
 import atexit
 import asyncio
 import aiohttp
-from .httpclient import DEFAULT_USER_AGENT
+from .httpclient import DEFAULT_USER_AGENT, ProxyObject
 
-connector = aiohttp.TCPConnector(limit=20)
-
-__all__ = ['session', 'HTTPError', 'NetworkErrors']
+__all__ = ['session',
+           'setup_session',
+           'HTTPError',
+           'NetworkErrors']
 
 class HTTPError(Exception):
     def __init__(self, code, message, response):
@@ -17,10 +18,12 @@ class HTTPError(Exception):
         self.response = response
 
 class BetterClientSession(aiohttp.ClientSession):
-    async def _request(self, *args, **kwargs):
-        if hasattr(self, "nv_config") and self.nv_config.get("proxy"):
-            kwargs.setdefault("proxy", self.nv_config.get("proxy"))
+    def __init__(self, *args, **kwargs):
+        self.proxy = kwargs.pop('proxy', None)
+        super().__init__(*args, **kwargs)
 
+    async def _request(self, *args, **kwargs):
+        kwargs.setdefault("proxy", self.proxy)
         kwargs.setdefault("headers", {}).setdefault('User-Agent', DEFAULT_USER_AGENT)
 
         res = await super(BetterClientSession, self)._request(
@@ -29,10 +32,16 @@ class BetterClientSession(aiohttp.ClientSession):
             raise HTTPError(res.status, res.reason, res)
         return res
 
-session = BetterClientSession(
-    connector = connector,
-    timeout = aiohttp.ClientTimeout(total=20),
-)
+session = ProxyObject()
+
+def setup_session(proxy, concurrency):
+    connector = aiohttp.TCPConnector(limit=concurrency)
+    session.set(BetterClientSession(
+        proxy = proxy,
+        trust_env = True,
+        connector = connector,
+        timeout = aiohttp.ClientTimeout(total=20),
+    ))
 
 @atexit.register
 def cleanup():

@@ -12,7 +12,7 @@ import structlog
 
 from .lib import nicelogger
 from .get_version import get_version
-from .source import session
+from .source import setup_session
 from . import slogconf
 
 from . import __version__
@@ -131,10 +131,11 @@ class Source:
 
       self.max_concurrent = c.getint('max_concurrent', 20)
       self.keymanager = KeyManager(keyfile)
-      session.nv_config = config["__config__"]
+      setup_session(c.get('proxy'), self.max_concurrent)
 
     else:
       self.max_concurrent = 20
+      setup_session(None, self.max_concurrent)
       self.keymanager = KeyManager(None)
 
   async def check(self):

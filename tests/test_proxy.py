@@ -3,20 +3,16 @@
 
 import sys
 
-try:
-  import aiohttp
-except ImportError:
-  aiohttp = None
-
 import pytest
 pytestmark = [
   pytest.mark.asyncio,
   pytest.mark.skipif('nvchecker.source.aiohttp_httpclient' not in sys.modules,
-                     reason='aiohttp no chosen'),
+                     reason='aiohttp not chosen'),
 ]
 
 async def test_proxy(get_version, monkeypatch):
   from nvchecker.source import session
+  import aiohttp
 
   async def fake_request(*args, proxy, **kwargs):
     class fake_response():
@@ -30,7 +26,7 @@ async def test_proxy(get_version, monkeypatch):
 
     return fake_response
 
-  monkeypatch.setattr(session, "nv_config", {"proxy": "255.255.255.255:65535"}, raising=False)
+  monkeypatch.setattr(session, "proxy", "255.255.255.255:65535", raising=False)
   monkeypatch.setattr(aiohttp.ClientSession, "_request", fake_request)
 
   assert await get_version("example", {"regex": "(.+)", "url": "deadbeef"}) == "255.255.255.255:65535"

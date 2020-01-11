@@ -9,15 +9,25 @@ from tornado.httpclient import HTTPError
 
 try:
   import pycurl
-  AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient", max_clients=20)
 except ImportError:
   pycurl = None
 
-from .httpclient import DEFAULT_USER_AGENT
+from .httpclient import DEFAULT_USER_AGENT, ProxyObject
 
-__all__ = ['session', 'HTTPError', 'NetworkErrors']
+__all__ = ['session',
+           'setup_session',
+           'HTTPError',
+           'NetworkErrors']
 
 HTTP2_AVAILABLE = None if pycurl else False
+
+def setup_session(proxy, concurrency):
+  if pycurl:
+    AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient", max_clients=concurrency)
+  else:
+    AsyncHTTPClient.configure("tornado.simple_httpclient.SimpleAsyncHTTPClient", max_clients=concurrency)
+
+  session.set(Session(proxy))
 
 def try_use_http2(curl):
   global HTTP2_AVAILABLE
@@ -31,6 +41,10 @@ def try_use_http2(curl):
     curl.setopt(pycurl.HTTP_VERSION, 4)
 
 class Session:
+  def __init__(self, proxy):
+    self.client = AsyncHTTPClient()
+    self.proxy = proxy
+
   def post(self, url, **kwargs):
     j = kwargs.pop('json', None)
     if j:
@@ -40,11 +54,7 @@ class Session:
   def get(self, url, **kwargs):
     kwargs['prepare_curl_callback'] = try_use_http2
 
-    proxy = kwargs.get('proxy')
-    if proxy:
-      del kwargs['proxy']
-    elif hasattr(self, 'nv_config') and self.nv_config.get('proxy'):
-      proxy = self.nv_config.get('proxy')
+    proxy = kwargs.pop('proxy', self.proxy)
     if proxy:
       host, port = proxy.rsplit(':', 1)
       kwargs['proxy_host'] = host
@@ -58,14 +68,15 @@ class Session:
 
     kwargs.setdefault("headers", {}).setdefault('User-Agent', DEFAULT_USER_AGENT)
     r = HTTPRequest(url, **kwargs)
-    return ResponseManager(r)
+    return ResponseManager(r, self.client)
 
 class ResponseManager:
-  def __init__(self, req):
+  def __init__(self, req, client):
     self.req = req
+    self.client = client
 
   async def __aenter__(self):
-    return await AsyncHTTPClient().fetch(self.req)
+    return await self.client.fetch(self.req)
 
   async def __aexit__(self, exc_type, exc, tb):
     pass
@@ -78,6 +89,6 @@ async def read(self):
 
 HTTPResponse.json = json_response
 HTTPResponse.read = read
-session = Session()
+session = ProxyObject()
 
 NetworkErrors = ()
