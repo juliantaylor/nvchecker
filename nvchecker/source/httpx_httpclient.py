@@ -21,8 +21,8 @@ class HTTPError(Exception):
     self.response = response
 
 NetworkErrors = (
-  httpx.exceptions.NetworkError,
-  httpx.exceptions.ConnectTimeout,
+  httpx.NetworkError,
+  httpx.ConnectTimeout,
 )
 
 class Response:
@@ -80,8 +80,8 @@ class Session:
     if not client:
       client = httpx.AsyncClient(
         pool_limits = httpx.PoolLimits(
-          soft_limit = self.concurrency * 2,
-          hard_limit = self.concurrency,
+          max_keepalive = self.concurrency * 2,
+          max_connections = self.concurrency,
         ),
         timeout = httpx.Timeout(20, pool_timeout=None),
         headers = {'User-Agent': DEFAULT_USER_AGENT},
